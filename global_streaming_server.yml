@@ -1,0 +1,20 @@
+version: '3'
+services:
+  server:
+    image: raspberrypi2:5000/streaming_server:latest
+    networks:
+      - default
+    ports:
+      - 80:80
+    deploy:
+      mode: global
+      #placement:
+      #  constraints:
+      #    - node.hostname == raspberrypi17
+
+
+networks:
+  default:
+    external:
+      name: home_overlay
+
