@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='utf-8'>
+<link rel='stylesheet' href='client.css'/>
+<title>visio</title>
+</head>
+<body>
+<h1>visio</h1>
+<div id='container'></div>
+<script src='Decoder.js'></script>
+<script src='YUVCanvas.js'></script>
+<script src='Player.js'></script>
+<script type="text/javascript">
+
+    var playerId = 'container'
+    var webgl = 'auto'
+    var useWorker = true
+    var playerElement = document.getElementById(playerId)
+    var canvas1 = document.createElement("canvas");
+    var canvas2 = document.createElement("canvas");
+    
+    // Create h264 player
+    var uri1 = "ws://192.168.2.2:80/stream0";
+    var uri2 = "ws://192.168.2.2:80/stream1";
+
+   	window.player1 = new Player({ useWorker: useWorker, webgl: webgl, size: { width: 640, height: 480 } })
+   	window.player2 = new Player({ useWorker: useWorker, webgl: webgl, size: { width: 640, height: 480 } })
+    //window.player1.canvas = canvas1
+    //window.player2.canvas = canvas2
+	playerElement.appendChild(window.player1.canvas);
+	playerElement.appendChild(window.player2.canvas);
+    
+   	window.player1.canvas.addEventListener('dblclick', function() {
+   		if(window.player1.canvas.requestFullScreen) window.player.canvas.requestFullScreen();
+   		else if(window.player1.canvas.webkitRequestFullScreen) window.player.canvas.webkitRequestFullScreen();
+   		else if(window.player1.canvas.mozRequestFullScreen) window.player.canvas.mozRequestFullScreen();
+   	})
+   	window.debugger = new debug(playerId) //show statistics, you can remove me if you dont need stats
+
+    document.addEventListener('webkitfullscreenchange', exitHandler, false);
+   	document.addEventListener('mozfullscreenchange', exitHandler, false);
+   	document.addEventListener('fullscreenchange', exitHandler, false);
+   	document.addEventListener('MSFullscreenChange', exitHandler, false);
+   	function exitHandler() {
+        if(document.fullScreenElement || document.webkitCurrentFullScreenElement || document.mozFullScreenElement) {
+   			window.player1.canvas.style.width = '100vw'
+   			window.player1.canvas.style.marginBottom = '0'
+   			window.player1.canvas.style.border = '0'
+   		} else {
+   			window.player1.canvas.style.width = ''
+   			window.player1.canvas.style.marginBottom = '20px'
+   			window.player1.canvas.style.border = '1px solid #eee'
+   		}
+   	}
+   	var ws1 = new WebSocket(uri1)
+   	var ws2 = new WebSocket(uri2)
+   	ws1.binaryType = 'arraybuffer'
+   	ws1.onopen = function (e) {
+   		console.log('websocket connected')
+   		ws.onmessage = function (msg) {
+   			window.player1.decode(new Uint8Array(msg.data))
+   			if(window.debugger) window.debugger.nal(msg.data.byteLength)
+   		}
+   	}
+   	ws1.onclose = function (e) {
+   		console.log('websocket disconnected')
+   		if (reconnectMs > 0) {
+   			setTimeout(function() { startStream(playerId, uri1, useWorker, webgl, reconnectMs) }, reconnectMs)
+   		}
+    }
+       
+    ws2.binaryType = 'arraybuffer'
+   	ws2.onopen = function (e) {
+   		console.log('websocket connected')
+   		ws.onmessage = function (msg) {
+   			window.player2.decode(new Uint8Array(msg.data))
+   			if(window.debugger) window.debugger.nal(msg.data.byteLength)
+   		}
+   	}
+   	ws2.onclose = function (e) {
+   		console.log('websocket disconnected')
+   		if (reconnectMs > 0) {
+   			setTimeout(function() { startStream(playerId, uri2, useWorker, webgl, reconnectMs) }, reconnectMs)
+   		}
+   	}
+
+</script>
+</body>
+</html>
