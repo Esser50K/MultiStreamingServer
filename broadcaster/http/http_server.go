@@ -1,10 +1,10 @@
 package http
 
 import (
-	"StreamingServer/broadcaster"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"streamingServer/broadcaster"
 )
 
 type HTMLPage struct {

@@ -1,9 +1,9 @@
 package tcp
 
 import (
+	"consts"
 	"fmt"
 	"net"
-	"streamingServer/consts"
 	"streamingServer/consumer/tcp/handler"
 	"sync"
 )
@@ -83,7 +83,7 @@ func (sc *StreamConnection) GetNextChunk(quality consts.Quality) ([]byte, error)
 	return <-outputChan, nil
 }
 
-func (sc *StreamConnection) GetOutputChan(quality consts.Quality) (chan []byte, error) {
+func (sc *StreamConnection) GetOutputChan(quality consts.Quality) (<-chan []byte, error) {
 	streamChan, ok := sc.streamChanMap[quality]
 	if !ok {
 		return nil, fmt.Errorf("No stream for %s with quality %s", sc.GetID(), quality)

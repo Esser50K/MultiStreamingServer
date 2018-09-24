@@ -6,7 +6,7 @@ import (
 
 // StreamConsumer must be implemented by strcuts representing stream consumers
 type StreamConsumer interface {
-	Start()
+	Start() error
 	GetStream(streamID string) (StreamConnection, error)
 	Stop() error
 }

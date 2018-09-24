@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"streamingServer/consumer"
 	"streamingServer/consumer/tcp/handler"
 	"sync"
 )
@@ -12,17 +13,22 @@ type Consumer struct {
 	maxStreamers    int
 	readersReady    int32
 	activeStreamers map[string]*StreamConnection
+	listenIP        string
+	listenPort      int
+	running         bool
 }
 
-func NewConsumer(maxStreamers int) (ss *Consumer) {
+func NewConsumer(ip string, port, maxStreamers int) (ss *Consumer) {
 	return &Consumer{
 		activeStreamers: make(map[string]*StreamConnection),
 		maxStreamers:    maxStreamers,
+		listenIP:        ip,
+		listenPort:      port,
 		readersReady:    0,
 	}
 }
 
-func (ss *Consumer) GetStream(streamID string) (*StreamConnection, error) {
+func (ss *Consumer) GetStream(streamID string) (consumer.StreamConnection, error) {
 	stream, ok := ss.activeStreamers[streamID]
 	if !ok {
 		return nil, fmt.Errorf("No stream registered with id '%s", streamID)
@@ -31,8 +37,19 @@ func (ss *Consumer) GetStream(streamID string) (*StreamConnection, error) {
 	return stream, nil
 }
 
-func (ss *Consumer) ListenForStreamers(ip string, port int) error {
-	address := fmt.Sprintf("%s:%d", ip, port)
+func (ss *Consumer) Stop() error {
+	ss.running = false
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ss.listenIP, ss.listenPort))
+	if err != nil {
+		ss.running = true
+		return err
+	}
+	conn.Close()
+	return nil
+}
+
+func (ss *Consumer) Start() error {
+	address := fmt.Sprintf("%s:%d", ss.listenIP, ss.listenPort)
 	tcpAddr, _ := net.ResolveTCPAddr("tcp4", address)
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
@@ -42,7 +59,8 @@ func (ss *Consumer) ListenForStreamers(ip string, port int) error {
 
 	mutex := &sync.Mutex{}
 	cond := sync.NewCond(mutex)
-	for {
+	ss.running = true
+	for ss.running {
 		fmt.Println("Listening for connection...")
 		conn, err := listener.AcceptTCP()
 		if err != nil {
@@ -90,6 +108,8 @@ func (ss *Consumer) ListenForStreamers(ip string, port int) error {
 			mutex.Unlock()
 		}
 	}
+	listener.Close()
+	return nil
 }
 
 func (ss *Consumer) readInt32(connection *net.TCPConn) (int32, error) {

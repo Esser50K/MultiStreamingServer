@@ -1,7 +1,7 @@
 package streamingServer
 
 import (
-	"streamingServer/consts"
+	"consts"
 
 	cluster "github.com/bsm/sarama-cluster"
 )
