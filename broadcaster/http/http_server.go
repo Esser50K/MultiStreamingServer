@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"streamingServer/broadcaster"
+	"streamingServer/broadcaster/http/handler"
 )
 
 type HTMLPage struct {
@@ -12,15 +13,17 @@ type HTMLPage struct {
 	Body  []byte
 }
 
-type HttpStreamServer struct {
-	streamBroadcaster *broadcaster.Broadcaster
+type HttpBroadcaster struct {
+	*broadcaster.Broadcaster
 }
 
-func NewStreamServer(bc *broadcaster.Broadcaster) *HttpStreamServer {
-	return &HttpStreamServer{bc}
+func NewBroadcaster(bc *broadcaster.Broadcaster) *HttpBroadcaster {
+	return &HttpBroadcaster{
+		Broadcaster: bc,
+	}
 }
 
-func (hss *HttpStreamServer) handleRootRequest(writer http.ResponseWriter, req *http.Request) {
+func (hss *HttpBroadcaster) handleRootRequest(writer http.ResponseWriter, req *http.Request) {
 	switch req.URL.Path {
 	case "/index.html":
 		indexHTML, err := hss.loadPageFromFile("index.html", "PiSurveillance")
@@ -35,20 +38,20 @@ func (hss *HttpStreamServer) handleRootRequest(writer http.ResponseWriter, req *
 	}
 }
 
-func (hss *HttpStreamServer) handleStreamRequest(writer http.ResponseWriter, req *http.Request) {
+func (hss *HttpBroadcaster) handleStreamRequest(writer http.ResponseWriter, req *http.Request) {
 	streamID := req.URL.Path
-	streamClient, err := hss.streamBroadcaster.AddClientStream(req.RemoteAddr, streamID)
+	streamClient, err := hss.AddClientStream(req.RemoteAddr, streamID)
 	if err != nil {
 		return
 	}
 
-	handleHttpStream, hErr := GetHttpStreamHandler(streamClient.GetStreamType())
+	handleHttpStream, hErr := handler.GetHTTPStreamHandler(streamClient.GetStreamType())
 	if hErr != nil {
 		streamClient.SetDone()
 		return
 	}
 
-	SendHttpHeaders(streamClient.GetStreamType(), writer)
+	handler.SendHTTPHeaders(streamClient.GetStreamType(), writer)
 	for !streamClient.IsDone() {
 		changeQuality, cqErr := handleHttpStream(streamClient.GetOutputChannel(), writer, req)
 		if cqErr != nil {
@@ -65,7 +68,7 @@ func (hss *HttpStreamServer) handleStreamRequest(writer http.ResponseWriter, req
 	}
 }
 
-func (hss *HttpStreamServer) loadPageFromFile(filename, title string) (*HTMLPage, error) {
+func (hss *HttpBroadcaster) loadPageFromFile(filename, title string) (*HTMLPage, error) {
 	body, err := ioutil.ReadFile(filename)
 	if err != nil {
 		fmt.Println("Error reading from file:\n", err)
@@ -74,7 +77,7 @@ func (hss *HttpStreamServer) loadPageFromFile(filename, title string) (*HTMLPage
 	return &HTMLPage{Title: title, Body: body}, nil
 }
 
-func (hss *HttpStreamServer) PrepareStreamHandlers(prepend string, nStreams int) {
+func (hss *HttpBroadcaster) PrepareStreamHandlers(prepend string, nStreams int) {
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	for i := 0; i < nStreams; i++ {
 		streamID := fmt.Sprintf("/%s%d", prepend, i)
@@ -82,6 +85,6 @@ func (hss *HttpStreamServer) PrepareStreamHandlers(prepend string, nStreams int)
 	}
 }
 
-func (hss *HttpStreamServer) StartServer(ip string, port int) {
+func (hss *HttpBroadcaster) StartServer(ip string, port int) {
 	http.ListenAndServe(fmt.Sprintf("%s:%d", ip, port), nil)
 }
