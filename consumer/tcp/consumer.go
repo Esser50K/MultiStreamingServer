@@ -15,15 +15,17 @@ type Consumer struct {
 	activeStreamers map[string]*StreamConnection
 	listenIP        string
 	listenPort      int
+	streamPrefix    string
 	running         bool
 }
 
-func NewConsumer(ip string, port, maxStreamers int) (ss *Consumer) {
+func NewConsumer(ip string, port, maxStreamers int, streamPrefix string) (ss *Consumer) {
 	return &Consumer{
 		activeStreamers: make(map[string]*StreamConnection),
 		maxStreamers:    maxStreamers,
 		listenIP:        ip,
 		listenPort:      port,
+		streamPrefix:    streamPrefix,
 		readersReady:    0,
 	}
 }
@@ -31,7 +33,7 @@ func NewConsumer(ip string, port, maxStreamers int) (ss *Consumer) {
 func (ss *Consumer) GetStream(streamID string) (consumer.StreamConnection, error) {
 	stream, ok := ss.activeStreamers[streamID]
 	if !ok {
-		return nil, fmt.Errorf("No stream registered with id '%s", streamID)
+		return nil, fmt.Errorf("No stream registered with id '%s\n", streamID)
 	}
 
 	return stream, nil
@@ -84,7 +86,7 @@ func (ss *Consumer) Start() error {
 		}
 
 		fmt.Println("Received connection successfully, passing to handler.")
-		streamID := fmt.Sprintf("/stream%d_%s", streamIDTypeQuality[0], streamQuality)
+		streamID := fmt.Sprintf("/%s%d", ss.streamPrefix, streamIDTypeQuality[0])
 		connection := NewStreamConnection(streamID, streamIDTypeQuality[1], streamQuality, conn)
 
 		fmt.Println("Registering stream with id:", streamID)

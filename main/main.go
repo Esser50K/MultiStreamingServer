@@ -8,10 +8,11 @@ import (
 
 func main() {
 	maxStreams := 8
-	streamServer := tcp.NewConsumer("", 12345, maxStreams)
+	streamPrefix := "stream"
+	streamServer := tcp.NewConsumer("", 12345, maxStreams, streamPrefix)
 	broadcaster := broadcaster.NewBroadcaster(streamServer)
-	httpStreamServer := http.NewHttpStreamServer(broadcaster)
+	httpStreamServer := http.NewStreamServer(broadcaster)
 	go broadcaster.Start()
-	httpStreamServer.PrepareStreamHandlers("stream", maxStreams)
+	httpStreamServer.PrepareStreamHandlers(streamPrefix, maxStreams)
 	httpStreamServer.StartServer("", 80)
 }

@@ -16,7 +16,7 @@ type HttpStreamServer struct {
 	streamBroadcaster *broadcaster.Broadcaster
 }
 
-func NewHttpStreamServer(bc *broadcaster.Broadcaster) *HttpStreamServer {
+func NewStreamServer(bc *broadcaster.Broadcaster) *HttpStreamServer {
 	return &HttpStreamServer{bc}
 }
 
