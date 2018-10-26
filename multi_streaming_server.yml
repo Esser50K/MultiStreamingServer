@@ -1,0 +1,51 @@
+version: '3'
+services:
+  streaming_server02:
+    image: raspberrypi2:5000/streaming_server:latest
+    networks:
+      - default
+    ports:
+      - 80:80
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == raspberrypi2
+
+  streaming_server03:
+    image: raspberrypi2:5000/streaming_server:latest
+    networks:
+      - default
+    ports:
+      - 80:80
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == raspberrypi3
+
+  streaming_server04:
+    image: raspberrypi2:5000/streaming_server:latest
+    networks:
+      - default
+    ports:
+      - 80:80
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == raspberrypi4
+
+  streaming_server05:
+    image: raspberrypi2:5000/streaming_server:latest
+    networks:
+      - default
+    ports:
+      - 80:80
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == raspberrypi5
+
+
+networks:
+  default:
+    external:
+      name: home_overlay
