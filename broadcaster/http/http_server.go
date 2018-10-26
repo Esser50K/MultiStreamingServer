@@ -1,11 +1,12 @@
-package http
+package broadcaster
 
 import (
+	"StreamingServer/broadcaster"
+	"StreamingServer/broadcaster/http/httphandler"
+	"StreamingServer/consumer"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"streamingServer/broadcaster"
-	"streamingServer/broadcaster/http/handler"
 )
 
 type HTMLPage struct {
@@ -17,9 +18,9 @@ type HttpBroadcaster struct {
 	*broadcaster.Broadcaster
 }
 
-func NewBroadcaster(bc *broadcaster.Broadcaster) *HttpBroadcaster {
+func NewHTTPBroadcaster(streamConsumer consumer.StreamConsumer) *HttpBroadcaster {
 	return &HttpBroadcaster{
-		Broadcaster: bc,
+		Broadcaster: broadcaster.NewBroadcaster(streamConsumer),
 	}
 }
 
@@ -39,29 +40,30 @@ func (hss *HttpBroadcaster) handleRootRequest(writer http.ResponseWriter, req *h
 }
 
 func (hss *HttpBroadcaster) handleStreamRequest(writer http.ResponseWriter, req *http.Request) {
-	streamID := req.URL.Path
+	streamID := req.URL.Path[1:] // cut off the / at the beginning
 	streamClient, err := hss.AddClientStream(req.RemoteAddr, streamID)
 	if err != nil {
 		return
 	}
 
-	handleHttpStream, hErr := handler.GetHTTPStreamHandler(streamClient.GetStreamType())
+	handleHttpStream, hErr := httphandler.GetHTTPStreamHandler(streamClient.GetStreamType())
 	if hErr != nil {
 		streamClient.SetDone()
 		return
 	}
 
-	handler.SendHTTPHeaders(streamClient.GetStreamType(), writer)
+	httphandler.SendHTTPHeaders(streamClient.GetStreamType(), writer)
 	for !streamClient.IsDone() {
+		// Need to be wary of raising h264 quality since it will throw an error about using a hjacked connection
 		changeQuality, cqErr := handleHttpStream(streamClient.GetOutputChannel(), writer, req)
 		if cqErr != nil {
 			streamClient.SetDone()
 			return
 		}
 
-		indicator, qErr := streamClient.ChangeWantedQuality(changeQuality)
-		fmt.Println(changeQuality, indicator, qErr)
-		if qErr != nil && indicator == !changeQuality {
+		qErr := streamClient.ChangeWantedQuality(changeQuality)
+		fmt.Println(changeQuality, qErr)
+		if qErr != nil {
 			streamClient.SetDone()
 			return
 		}
@@ -81,6 +83,7 @@ func (hss *HttpBroadcaster) PrepareStreamHandlers(prepend string, nStreams int) 
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	for i := 0; i < nStreams; i++ {
 		streamID := fmt.Sprintf("/%s%d", prepend, i)
+		fmt.Println(streamID)
 		http.HandleFunc(streamID, hss.handleStreamRequest)
 	}
 }

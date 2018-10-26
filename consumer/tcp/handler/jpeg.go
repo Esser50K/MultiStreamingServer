@@ -1,4 +1,4 @@
-package handler
+package tcphandler
 
 import (
 	"encoding/binary"

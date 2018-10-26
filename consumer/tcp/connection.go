@@ -1,10 +1,11 @@
-package tcp
+package consumer
 
 import (
-	"consts"
+	"StreamingServer/consts"
+	"StreamingServer/consumer"
+	"StreamingServer/consumer/tcp/handler"
 	"fmt"
 	"net"
-	"streamingServer/consumer/tcp/handler"
 	"sync"
 )
 
@@ -13,37 +14,42 @@ type connectionStream struct {
 	outChan chan []byte
 }
 
-// StreamConnection represents an in use and read-only stream connection
-type StreamConnection struct {
-	streamID      string
-	streamType    int32
+// TCPStreamConnection represents an in use and read-only stream connection
+type TCPStreamConnection struct {
+	consumer.BaseStreamConnection
 	streamChanMap map[consts.Quality]connectionStream
 	isOpen        bool
 	sync.Mutex
 }
 
-func NewStreamConnection(streamID string, streamType int32, streamQuality consts.Quality, connection *net.TCPConn) *StreamConnection {
-	tsc := &StreamConnection{
-		streamID:      streamID,
-		streamType:    streamType,
-		streamChanMap: make(map[consts.Quality]connectionStream),
-		isOpen:        false,
+func NewTCPStreamConnection(streamID string, streamType consts.StreamType, streamQuality consts.Quality, connection *net.TCPConn) *TCPStreamConnection {
+	tsc := &TCPStreamConnection{
+		BaseStreamConnection: consumer.NewBaseStreamConnection(streamID, streamType),
+		streamChanMap:        make(map[consts.Quality]connectionStream),
+		isOpen:               false,
 	}
 
 	tsc.streamChanMap[streamQuality] = connectionStream{connection, make(chan []byte, 32)}
 	return tsc
 }
 
-func (sc *StreamConnection) GetID() string {
-	return sc.streamID
+func (sc *TCPStreamConnection) AddConnection(quality consts.Quality, conn interface{}) error {
+	connection, ok := conn.(*net.TCPConn)
+	if !ok {
+		return fmt.Errorf("conn argument must be of type *net.TCPConn")
+	}
+
+	sc.streamChanMap[quality] = connectionStream{
+		conn:    connection,
+		outChan: make(chan []byte, 32),
+	}
+	return nil
 }
 
-func (sc *StreamConnection) GetType() int32 {
-	return sc.streamType
-}
-
-func (sc *StreamConnection) close(quality consts.Quality) error {
+func (sc *TCPStreamConnection) Close(quality consts.Quality) error {
 	sc.Lock()
+	defer sc.Unlock()
+
 	if sc.isOpen {
 		streamConn, ok := sc.streamChanMap[quality]
 		if !ok {
@@ -56,25 +62,17 @@ func (sc *StreamConnection) close(quality consts.Quality) error {
 		}
 
 		close(streamConn.outChan)
+		delete(sc.streamChanMap, quality)
+	}
+
+	if len(sc.streamChanMap) == 0 {
 		sc.isOpen = false
 	}
-	sc.Unlock()
 
 	return nil
 }
 
-func (sc *StreamConnection) Close() error {
-	for k, _ := range sc.streamChanMap {
-		err := sc.close(k)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (sc *StreamConnection) GetNextChunk(quality consts.Quality) ([]byte, error) {
+func (sc *TCPStreamConnection) GetNextChunk(quality consts.Quality) ([]byte, error) {
 	outputChan, err := sc.GetOutputChan(quality)
 	if err != nil {
 		return nil, err
@@ -83,7 +81,11 @@ func (sc *StreamConnection) GetNextChunk(quality consts.Quality) ([]byte, error)
 	return <-outputChan, nil
 }
 
-func (sc *StreamConnection) GetOutputChan(quality consts.Quality) (<-chan []byte, error) {
+func (sc *TCPStreamConnection) GetOutputChan(quality consts.Quality) (<-chan []byte, error) {
+	sc.Lock()
+	defer sc.Unlock()
+	fmt.Println("Requested quality:", quality)
+	fmt.Println(sc.GetID(), sc.streamChanMap)
 	streamChan, ok := sc.streamChanMap[quality]
 	if !ok {
 		return nil, fmt.Errorf("No stream for %s with quality %s", sc.GetID(), quality)
@@ -92,17 +94,21 @@ func (sc *StreamConnection) GetOutputChan(quality consts.Quality) (<-chan []byte
 	return streamChan.outChan, nil
 }
 
-func (sc *StreamConnection) HandleStream(quality consts.Quality) error {
-	streamHandleFunc, err := handler.GetTCPStreamHandleFunc(sc.GetType())
+func (sc *TCPStreamConnection) HandleStream(quality consts.Quality) error {
+	sc.isOpen = true
+	streamHandleFunc, err := tcphandler.GetTCPStreamHandleFunc(sc.GetType())
 	if err != nil {
 		return err
 	}
 
 	streamConn, ok := sc.streamChanMap[quality]
 	if !ok {
-		return err
+		return fmt.Errorf("no stream connection for quality %d", quality)
 	}
 
-	streamHandleFunc(streamConn.conn, streamConn.outChan)
-	return nil
+	return streamHandleFunc(streamConn.conn, streamConn.outChan)
+}
+
+func (sc *TCPStreamConnection) IsOpen() bool {
+	return sc.isOpen
 }

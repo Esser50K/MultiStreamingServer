@@ -1,4 +1,4 @@
-package handler
+package tcphandler
 
 import (
 	"bytes"
@@ -82,10 +82,11 @@ func HandleH264Stream(connection *net.TCPConn, outputChannel chan []byte) error 
 
 		// if output channel is full start discarding frames.
 		select {
-		case streamChan <- imgBuffer: // Send image bytes to channel
+		//case streamChan <- imgBuffer: // Send image bytes to channel
+		case outputChannel <- imgBuffer: // Send image bytes to channel
 		default:
-			<-streamChan
-			streamChan <- imgBuffer
+			<-outputChannel
+			outputChannel <- imgBuffer
 		}
 	}
 }

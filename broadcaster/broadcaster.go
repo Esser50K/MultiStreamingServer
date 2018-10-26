@@ -1,24 +1,23 @@
 package broadcaster
 
 import (
-	"consts"
+	"StreamingServer/consts"
+	"StreamingServer/consumer"
 	"fmt"
-	"streamingServer/consumer"
-	"streamingServer/consumer/tcp/handler"
 	"sync"
 	"sync/atomic"
 )
 
 type streamClient struct {
 	clientID      string
-	streamType    int32
+	streamType    consts.StreamType
 	wantedQuality consts.Quality
 	inputChan     chan []byte
 	done          uint32
 	sync.Mutex
 }
 
-func (c *streamClient) GetStreamType() int32 {
+func (c *streamClient) GetStreamType() consts.StreamType {
 	return c.streamType
 }
 
@@ -34,27 +33,27 @@ func (c *streamClient) IsDone() bool {
 	return atomic.LoadUint32(&c.done) == 1
 }
 
-func (c *streamClient) ChangeWantedQuality(higher bool) (bool, error) {
+func (c *streamClient) ChangeWantedQuality(higher bool) error {
 	c.Lock()
 	defer c.Unlock()
-	qualityIndex, err := handler.GetQualityIndex(c.wantedQuality)
-	if err != nil {
-		return false, err
-	}
-
 	if higher {
-		qualityIndex++
+		c.wantedQuality++
 	} else {
-		qualityIndex--
+		c.wantedQuality--
 	}
 
-	wQuality, qErr := handler.GetStreamQuality(qualityIndex)
-	if qErr != nil {
-		return false, err
+	// Maintain at highest quality
+	if c.wantedQuality > consts.HighQuality {
+		c.wantedQuality = consts.HighQuality
+		return nil
 	}
 
-	c.wantedQuality = wQuality
-	return true, nil
+	fmt.Println("Wanted Quality:", c.wantedQuality)
+	if c.wantedQuality < consts.LowQuality {
+		return fmt.Errorf("requesting to low quality: %d", c.wantedQuality)
+	}
+
+	return nil
 }
 
 type streamBroadcaster struct {
@@ -84,13 +83,21 @@ func (sb *streamBroadcaster) Broadcast() {
 	sb.isBroadcasting = true
 	defer func() {
 		sb.isBroadcasting = false
+		for _, client := range sb.clientStreams {
+			client.SetDone()
+		}
 	}()
 
 	for {
-		dataQualityMap := make(map[consts.Quality][]byte)
+		fmt.Println("InputStream", sb.streamID, "is open:", sb.inputStream.IsOpen())
+		if !sb.inputStream.IsOpen() {
+			fmt.Println("Input Stream is closed. Stopping Broadcast.")
+			return
+		}
 
 		// Get images of all qualities
-		for _, quality := range consts.Qualities {
+		dataQualityMap := make(map[consts.Quality][]byte)
+		for quality, _ := range consts.Qualities {
 			qualityChan, err := sb.inputStream.GetOutputChan(quality)
 			if err != nil {
 				continue
@@ -104,9 +111,6 @@ func (sb *streamBroadcaster) Broadcast() {
 
 		// If no image was retrieved then stop broadcasting
 		if len(dataQualityMap) == 0 {
-			for _, client := range sb.clientStreams {
-				client.SetDone()
-			}
 			return
 		}
 
@@ -136,6 +140,8 @@ func (sb *streamBroadcaster) Broadcast() {
 		}
 		sb.Unlock()
 	}
+
+	fmt.Println("Finished Broadcasting.")
 }
 
 type Broadcaster struct {
@@ -185,7 +191,7 @@ func (bc *Broadcaster) AddClientStream(clientID, streamID string) (*streamClient
 		wantedQuality: consts.HighQuality,
 		streamType:    stream.GetType(),
 		done:          0,
-		inputChan:     make(chan []byte, 16),
+		inputChan:     make(chan []byte, 4),
 	}
 
 	// Check if broadcaster for that specific stream exists
