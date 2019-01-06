@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-type HttpStreamHandler func(streamChan chan []byte, writer http.ResponseWriter, request *http.Request) (bool, error)
+type HttpStreamHandler func(streamChan chan []byte, writer http.ResponseWriter, request *http.Request, reusableOutput interface{}) (bool, interface{}, error)
 
 func GetHTTPStreamHandler(streamType consts.StreamType) (HttpStreamHandler, error) {
 	switch streamType {
@@ -15,7 +15,7 @@ func GetHTTPStreamHandler(streamType consts.StreamType) (HttpStreamHandler, erro
 	case consts.StreamH264:
 		return HandleH264StreamRequest, nil
 	default:
-		return nil, fmt.Errorf("No handler for stream type %d", streamType)
+		return nil, fmt.Errorf("No handler for stream type %s", streamType)
 	}
 }
 
@@ -28,6 +28,6 @@ func SendHTTPHeaders(streamType consts.StreamType, writer http.ResponseWriter) e
 		SendH264Headers(writer)
 		return nil
 	default:
-		return fmt.Errorf("No headers for stream type %d", streamType)
+		return fmt.Errorf("No headers for stream type %s", streamType)
 	}
 }

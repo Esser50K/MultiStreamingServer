@@ -31,8 +31,6 @@ func NewTCPConsumer(ip string, port, maxStreamers int, streamPrefix string) *TCP
 }
 
 func (sc *TCPConsumer) GetStream(streamID string) (consumer.StreamConnection, error) {
-	fmt.Println("StreamRequest", streamID)
-	fmt.Println("Active_streamers", sc.activeStreamers)
 	stream, ok := sc.activeStreamers[streamID]
 	if !ok {
 		return nil, fmt.Errorf("No stream registered with id '%s\n", streamID)

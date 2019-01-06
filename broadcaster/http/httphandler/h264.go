@@ -14,13 +14,22 @@ func SendH264Headers(writer http.ResponseWriter) {
 	return
 }
 
-func HandleH264StreamRequest(streamChan chan []byte, writer http.ResponseWriter, request *http.Request) (bool, error) {
+func HandleH264StreamRequest(streamChan chan []byte, writer http.ResponseWriter, request *http.Request, reusableOutput interface{}) (bool, interface{}, error) {
 	closeChannel := writer.(http.CloseNotifier).CloseNotify()
-	webConn, err := upgrader.Upgrade(writer, request, nil)
-	if err != nil {
-		return false, err
+	var err error
+	var webConn *websocket.Conn
+	if reusableOutput != nil {
+		var ok bool
+		webConn, ok = reusableOutput.(*websocket.Conn)
+		if !ok {
+			return false, nil, fmt.Errorf("reusableOutput cannot be casted to websocket.Conn")
+		}
+	} else {
+		webConn, err = upgrader.Upgrade(writer, request, nil)
+		if err != nil {
+			return false, nil, err
+		}
 	}
-	defer webConn.Close()
 
 	/*
 		initJson, _ := json.NewJson([]byte(`{}`))
@@ -70,20 +79,22 @@ func HandleH264StreamRequest(streamChan chan []byte, writer http.ResponseWriter,
 		select {
 		case <-time.After(5 * time.Second):
 			fmt.Println(request.RemoteAddr, " has too poor connectivity to the server, removing from stream.", request.URL.Path)
-			return false, nil
+			return false, webConn, nil
 
 		case data, ok := <-streamChan:
 			if !ok {
-				return false, nil
+				return false, webConn, nil
 			}
 
 			err = webConn.WriteMessage(websocket.BinaryMessage, data)
 			if err != nil {
-				return false, err
+				webConn.Close()
+				return false, nil, err
 			}
 
 		case <-closeChannel:
-			return false, nil
+			webConn.Close()
+			return false, nil, fmt.Errorf("Client closed the connection")
 		}
 	}
 }

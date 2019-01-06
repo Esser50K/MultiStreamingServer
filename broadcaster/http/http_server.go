@@ -53,20 +53,24 @@ func (hss *HttpBroadcaster) handleStreamRequest(writer http.ResponseWriter, req 
 	}
 
 	httphandler.SendHTTPHeaders(streamClient.GetStreamType(), writer)
+	var auxOutput interface{}
 	for !streamClient.IsDone() {
 		// Need to be wary of raising h264 quality since it will throw an error about using a hjacked connection
-		changeQuality, cqErr := handleHttpStream(streamClient.GetOutputChannel(), writer, req)
+		changeQuality, reusableOutput, cqErr := handleHttpStream(streamClient.GetOutputChannel(), writer, req, auxOutput)
 		if cqErr != nil {
 			streamClient.SetDone()
 			return
 		}
 
 		qErr := streamClient.ChangeWantedQuality(changeQuality)
-		fmt.Println(changeQuality, qErr)
+		fmt.Println(changeQuality, reusableOutput, qErr)
 		if qErr != nil {
 			streamClient.SetDone()
 			return
 		}
+
+		// set reusableOutput to what the function returns
+		auxOutput = reusableOutput
 	}
 }
 
