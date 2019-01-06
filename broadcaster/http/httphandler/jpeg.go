@@ -21,7 +21,7 @@ func SendJpegHeaders(writer http.ResponseWriter) {
 	writer.Header().Set("Connection", "keep-alive")
 }
 
-func HandleJpegStreamRequest(streamChan chan []byte, writer http.ResponseWriter, req *http.Request) (bool, error) {
+func HandleJpegStreamRequest(streamChan chan []byte, writer http.ResponseWriter, req *http.Request, reusableOutput interface{}) (bool, interface{}, error) {
 	closeChannel := writer.(http.CloseNotifier).CloseNotify()
 	startTime := time.Now().Unix()
 	nPushedFrames := 0
@@ -61,13 +61,13 @@ func HandleJpegStreamRequest(streamChan chan []byte, writer http.ResponseWriter,
 		case <-time.After(5 * time.Second):
 			fmt.Println(req.RemoteAddr, " has too poor connectivity to the server, removing from stream.", req.URL.Path)
 			close(auxCloseChan)
-			return false, nil
+			return false, nil, nil
 
 		case img, ok := <-auxBuffer:
 
 			if !ok {
 				fmt.Println(req.RemoteAddr, " has left the stream", req.URL.Path)
-				return false, errors.New(req.RemoteAddr + " has left the stream" + req.URL.Path)
+				return false, nil, errors.New(req.RemoteAddr + " has left the stream" + req.URL.Path)
 			}
 
 			if !first {
@@ -82,7 +82,7 @@ func HandleJpegStreamRequest(streamChan chan []byte, writer http.ResponseWriter,
 			nWrittenBytes, err := writer.Write(writeBuffer.Bytes())
 			if err != nil || nWrittenBytes != writeBuffer.Len() {
 				close(auxCloseChan)
-				return false, err
+				return false, nil, err
 			}
 
 			writeBuffer.Reset()
@@ -105,7 +105,7 @@ func HandleJpegStreamRequest(streamChan chan []byte, writer http.ResponseWriter,
 				if frameRate < minFPS {
 					fmt.Println(req.RemoteAddr, " has too poor connectivity to the server,  trying to reduce quality of stream.", req.URL.Path)
 					close(auxCloseChan)
-					return false, nil
+					return false, nil, nil
 				}
 
 				if frameRate > maxFPS {
@@ -113,7 +113,7 @@ func HandleJpegStreamRequest(streamChan chan []byte, writer http.ResponseWriter,
 					if qualityCounter > 5 {
 						fmt.Println(req.RemoteAddr, " has good connectivity to the server, trying to improve quality of stream.", req.URL.Path)
 						close(auxCloseChan)
-						return true, nil
+						return false, nil, nil
 					}
 				} else {
 					qualityCounter = 0

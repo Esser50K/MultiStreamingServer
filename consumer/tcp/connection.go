@@ -84,8 +84,6 @@ func (sc *TCPStreamConnection) GetNextChunk(quality consts.Quality) ([]byte, err
 func (sc *TCPStreamConnection) GetOutputChan(quality consts.Quality) (<-chan []byte, error) {
 	sc.Lock()
 	defer sc.Unlock()
-	fmt.Println("Requested quality:", quality)
-	fmt.Println(sc.GetID(), sc.streamChanMap)
 	streamChan, ok := sc.streamChanMap[quality]
 	if !ok {
 		return nil, fmt.Errorf("No stream for %s with quality %s", sc.GetID(), quality)

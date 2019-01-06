@@ -50,7 +50,7 @@ func (c *streamClient) ChangeWantedQuality(higher bool) error {
 
 	fmt.Println("Wanted Quality:", c.wantedQuality)
 	if c.wantedQuality < consts.LowQuality {
-		return fmt.Errorf("requesting to low quality: %d", c.wantedQuality)
+		return fmt.Errorf("requesting too low quality: %d", c.wantedQuality)
 	}
 
 	return nil
@@ -89,7 +89,6 @@ func (sb *streamBroadcaster) Broadcast() {
 	}()
 
 	for {
-		fmt.Println("InputStream", sb.streamID, "is open:", sb.inputStream.IsOpen())
 		if !sb.inputStream.IsOpen() {
 			fmt.Println("Input Stream is closed. Stopping Broadcast.")
 			return
@@ -97,7 +96,7 @@ func (sb *streamBroadcaster) Broadcast() {
 
 		// Get images of all qualities
 		dataQualityMap := make(map[consts.Quality][]byte)
-		for quality, _ := range consts.Qualities {
+		for quality := range consts.Qualities {
 			qualityChan, err := sb.inputStream.GetOutputChan(quality)
 			if err != nil {
 				continue
@@ -140,8 +139,6 @@ func (sb *streamBroadcaster) Broadcast() {
 		}
 		sb.Unlock()
 	}
-
-	fmt.Println("Finished Broadcasting.")
 }
 
 type Broadcaster struct {
