@@ -1,5 +1,5 @@
 FROM alpine:latest
-COPY streamingServer /
-WORKDIR streamingServer
-ENTRYPOINT ["./superMain.go"]
+COPY public /
+COPY bin/streaming_server.exec /
+ENTRYPOINT ["./streaming_server.exec"]
 EXPOSE 80 12345

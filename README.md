@@ -34,3 +34,24 @@ Docker will automatically load-balance the multiple server instances when someon
 ## Future Work
 - Publish client side code that sends video streams to the server
 - Develop a Kafka consumer for a more stable and less bandwidth consuming setup.
+
+## Development
+
+You can set the project up wherever you want as long as the parent folder is called `src`, then you can prepend any `go` command with `GOPATH=$PWD/../..` to correctly point the compiler and dependency checkers to the project.
+
+### Dependency Management
+
+Use `dep` for dependency management. If you write code with newer go packages make sure to commit the changes
+in the Gopkg.toml and Gopkg.lock files. Run `dep ensure` to install all dependencies and be able to compile the project.
+
+If you're using new dependencies use `dep ensure` to install the new dependencies. If you need higher versions
+of existing dependencies use `dep ensure --update` to get the newer versions.
+
+Don't forget to prepend these commands with `GOPATH=$PWD/../..` and run them inside the root folder with a parent folder called `src` for them to work correctly.
+
+### Compile
+
+To compile simply run the basic `go build -o bin/streaming_server.exec main/main.go` (again with the GOPATH env variable prepended).
+
+If you're compiling it to actually run on the raspberry specify the OS, Architecture (ARM) and ARM version: `GOOS=linux GOARCH=arm GOARM=7 go build -o bin/streaming_server.exec main/main.go`.
+
